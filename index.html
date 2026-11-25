@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>하이쌤의 행운권 추첨 - hi-ssam</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@500;700;900&family=Outfit:wght@700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <!-- ==================== HOST / MAIN KIOSK VIEW ==================== -->
+  <div id="host-view" class="view hidden">
+    <div class="host-layout">
+      <!-- Left / Center: Vertical Media Gacha Machine -->
+      <main class="machine-stage">
+        <div class="machine-cabinet">
+          <div class="machine-top-bar">
+            <span class="machine-title">하이쌤의 행운권 추첨</span>
+            <span id="machine-status-pill" class="machine-status-pill waiting">게임 준비 중</span>
+          </div>
+
+          <div class="machine-screen">
+            <canvas id="gacha-canvas"></canvas>
+
+            <!-- Active Player / Result Banner inside screen -->
+            <div id="screen-banner" class="screen-banner hidden"></div>
+
+            <!-- Bottom QR Overlay -->
+            <div class="machine-bottom-overlay">
+              <div id="machine-qr-card" class="machine-qr-card" title="클릭하면 QR을 크게 봅니다">
+                <canvas id="machine-qr-canvas"></canvas>
+                <span class="qr-pointer-badge">👆 QR 스캔</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Right: Host Control Panel -->
+      <aside class="host-panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-brand">hi-ssam</div>
+            <h1 class="panel-title">럭키 뽑기 호스트</h1>
+          </div>
+          <div class="panel-header-actions">
+            <button type="button" id="btn-toggle-kiosk" class="icon-btn" title="뽑기 화면만 크게 보기">🖥️</button>
+            <button type="button" id="btn-sound" class="icon-btn" title="소리 켜기/끄기">🔊</button>
+            <button type="button" id="btn-fullscreen" class="icon-btn" title="전체화면">⛶</button>
+          </div>
+        </div>
+
+        <!-- Live Stats -->
+        <div class="stats-grid">
+          <div class="stat-box">
+            <span class="stat-label">접속 기기</span>
+            <strong id="stat-clients" class="stat-value">0명</strong>
+          </div>
+          <div class="stat-box accent">
+            <span class="stat-label">남은 당첨</span>
+            <strong id="stat-winners" class="stat-value">3 / 3명</strong>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">총 뽑기</span>
+            <strong id="stat-plays" class="stat-value">0회</strong>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">대기열</span>
+            <strong id="stat-queue" class="stat-value">0명</strong>
+          </div>
+        </div>
+
+        <!-- Host Configuration -->
+        <section class="panel-card">
+          <h2 class="card-title">🎯 당첨 인원 & 랜덤 설정</h2>
+          <div class="config-row">
+            <label for="input-winner-count">당첨 시킬 인원</label>
+            <div class="stepper">
+              <button type="button" id="btn-winner-minus" class="step-btn">-</button>
+              <input type="number" id="input-winner-count" min="1" max="100" value="3" />
+              <button type="button" id="btn-winner-plus" class="step-btn">+</button>
+            </div>
+          </div>
+          <div class="config-row">
+            <label for="input-total-slots">총 뽑기 풀 (예상 인원)</label>
+            <div class="stepper">
+              <button type="button" id="btn-slots-minus" class="step-btn">-</button>
+              <input type="number" id="input-total-slots" min="1" max="500" value="15" />
+              <button type="button" id="btn-slots-plus" class="step-btn">+</button>
+            </div>
+          </div>
+          <div class="prob-bar">
+            <span>랜덤 당첨 확률</span>
+            <strong id="prob-badge" class="prob-badge">20% (15명 중 3명)</strong>
+          </div>
+          <label class="toggle-row">
+            <input type="checkbox" id="chk-one-per-user" checked />
+            <span>1인 1회 참여 제한</span>
+          </label>
+
+          <div class="action-buttons">
+            <button type="button" id="btn-start-game" class="btn-primary">🚀 게임 시작!</button>
+            <button type="button" id="btn-reset-game" class="btn-secondary">🔄 초기화</button>
+          </div>
+          <button type="button" id="btn-skip-turn" class="btn-ghost hidden">⏭️ 현재 차례 넘기기</button>
+        </section>
+
+        <!-- QR & Share -->
+        <section class="panel-card">
+          <h2 class="card-title">📱 참여 링크 & QR</h2>
+          <a id="host-share-link" class="share-link-pill" href="/?mode=play" target="_blank" rel="noopener noreferrer">참여 링크 열기</a>
+          <div class="share-actions">
+            <button type="button" id="btn-show-qr" class="btn-secondary">QR 크게 보기</button>
+            <button type="button" id="btn-copy-link" class="btn-secondary">링크 복사</button>
+            <a id="btn-open-mobile" class="btn-secondary link-btn" href="/?mode=play" target="_blank" rel="noopener noreferrer">내 기기 테스트</a>
+          </div>
+        </section>
+
+        <!-- Winners List -->
+        <section class="panel-card winners-card">
+          <h2 class="card-title">🏆 당첨자 명단</h2>
+          <ul id="winners-list" class="winners-list">
+            <li class="empty-msg">아직 당첨자가 없습니다.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+
+    <button type="button" id="btn-show-panel" class="floating-panel-toggle hidden">⚙️ 호스트 설정 열기</button>
+
+    <!-- Large QR Modal -->
+    <div id="qr-modal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <button type="button" class="modal-close" id="close-qr-modal">✕</button>
+        <div class="modal-brand">hi-ssam LUCKY GRAB</div>
+        <h2 class="modal-title">📱 QR 찍고 뽑기 도전!</h2>
+        <p class="modal-sub">스마트폰 카메라로 QR을 스캔하면 내 기기가 조정기가 됩니다.</p>
+        <div class="qr-box">
+          <canvas id="large-qr-canvas"></canvas>
+        </div>
+        <div class="qr-link-row">
+          <input type="text" id="qr-link-input" readonly />
+          <a id="qr-modal-open" class="btn-secondary compact link-btn" href="/?mode=play" target="_blank" rel="noopener noreferrer">열기</a>
+          <button type="button" id="btn-modal-copy" class="btn-primary compact">복사</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MOBILE CONTROLLER VIEW ==================== -->
+  <div id="mobile-view" class="view hidden">
+    <header class="mobile-header">
+      <div class="mobile-brand">
+        <span class="brand-logo-dot small"></span>
+        <span>hi-ssam</span>
+      </div>
+      <div class="mobile-header-right">
+        <span id="mobile-status-badge" class="mobile-status-badge">연결 중...</span>
+        <button type="button" id="btn-mobile-sound" class="icon-btn small">🔊</button>
+      </div>
+    </header>
+
+    <!-- Step 1: Join Screen -->
+    <section id="m-screen-join" class="mobile-screen">
+      <div class="join-card">
+        <div class="join-emoji">🕹️</div>
+        <h1 class="join-title">hi-ssam 럭키 뽑기</h1>
+        <p class="join-sub">내 폰으로 집게를 조종해서 행운의 공을 뽑아보세요!</p>
+
+        <div class="input-group">
+          <label for="input-nickname">닉네임</label>
+          <input type="text" id="input-nickname" maxlength="14" placeholder="이름이나 닉네임 (예: 지수)" />
+        </div>
+
+        <button type="button" id="btn-join-queue" class="btn-primary big">🎮 뽑기 참여하기!</button>
+        <p id="join-hint" class="join-hint">호스트가 게임을 시작하면 바로 참여할 수 있어요.</p>
+      </div>
+    </section>
+
+    <!-- Step 2: Queue Waiting Screen -->
+    <section id="m-screen-queue" class="mobile-screen hidden">
+      <div class="queue-card">
+        <div class="pulse-ring">⏳</div>
+        <h2 id="queue-title" class="queue-title">대기열에 등록되었어요!</h2>
+        <p id="queue-desc" class="queue-desc">잠시만 기다리면 내 차례가 옵니다.</p>
+        <div id="queue-now-playing" class="queue-now-playing"></div>
+      </div>
+    </section>
+
+    <!-- Step 3: Active Arcade Controller Screen (inspired by video 00:06-00:13) -->
+    <section id="m-screen-controller" class="mobile-screen hidden">
+      <div class="controller-top">
+        <span class="turn-badge">✨ 내 차례!</span>
+        <span id="turn-timer" class="turn-timer">30초</span>
+      </div>
+
+      <div class="controller-pad">
+        <!-- Cross D-Pad -->
+        <div class="dpad-wrap">
+          <div class="dpad-grid">
+            <div class="dpad-spacer"></div>
+            <button type="button" id="pad-up" class="dpad-btn up" aria-label="위">▲</button>
+            <div class="dpad-spacer"></div>
+            <button type="button" id="pad-left" class="dpad-btn left" aria-label="왼쪽">◀</button>
+            <div class="dpad-center"></div>
+            <button type="button" id="pad-right" class="dpad-btn right" aria-label="오른쪽">▶</button>
+            <div class="dpad-spacer"></div>
+            <button type="button" id="pad-down" class="dpad-btn down" aria-label="아래">▼</button>
+            <div class="dpad-spacer"></div>
+          </div>
+        </div>
+
+        <!-- Grab Action Button -->
+        <div class="grab-wrap">
+          <button type="button" id="btn-grab" class="grab-btn">
+            <span class="grab-btn-icon">🪝</span>
+            <span class="grab-btn-text">뽑기!</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="controller-footer-bar">
+        집게를 움직여 공을 뽑아보세요!
+      </div>
+    </section>
+
+    <!-- Step 4: Grabbing Animation Screen -->
+    <section id="m-screen-grabbing" class="mobile-screen hidden">
+      <div class="queue-card grabbing">
+        <div class="grab-anim-icon">🪝</div>
+        <h2 class="queue-title">집게가 공을 잡는 중...</h2>
+        <p class="queue-desc">메인 화면을 주목하세요! 두근두근 ✨</p>
+      </div>
+    </section>
+
+    <!-- Step 5: Result Screen (inspired by video 00:30) -->
+    <section id="m-screen-result" class="mobile-screen hidden">
+      <div id="result-card" class="result-card">
+        <div class="result-eyebrow">LUCKY GRAB</div>
+        <div id="result-emoji" class="result-emoji">🎉</div>
+        <h2 id="result-title" class="result-title">축하합니다!</h2>
+        <p id="result-desc" class="result-desc">뽑기에 성공하셨습니다!</p>
+        <div id="result-ticket" class="result-ticket hidden">
+          <span class="ticket-label">hi-ssam 당첨 티켓</span>
+          <strong id="result-ticket-code" class="ticket-code">HS-0000</strong>
+          <span class="ticket-note">진행자에게 이 화면을 보여주세요!</span>
+        </div>
+        <button type="button" id="btn-play-again" class="btn-primary big hidden">🔄 다시 도전하기</button>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

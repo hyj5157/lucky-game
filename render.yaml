@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: hissam-lucky-grab
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+
+  - type: web
+    name: christmas-drawing-wall
+    runtime: node
+    plan: free
+    rootDir: christmas_wall
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22
